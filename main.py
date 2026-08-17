@@ -194,6 +194,18 @@ def to_lines(summary: str, max_lines: int, max_len: int) -> str:
     return cut.rstrip(" ,·-") + "."
 
 
+def parse_published(entry) -> datetime:
+    """RSS 발행시각. 타임존이 없는 피드는 feedparser 가 UTC 로 해석함.
+    파싱 불가면 None."""
+    st = entry.get("published_parsed") or entry.get("updated_parsed")
+    if not st:
+        return None
+    try:
+        return datetime(*st[:6], tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
 def match_keywords(text: str, keywords: list) -> bool:
     """keywords 가 비어 있으면 전체 통과."""
     if not keywords:
@@ -270,6 +282,7 @@ def fetch_rss(src: dict, summary_len: int) -> list:
                 "link": link,
                 "summary": summary,
                 "source": src.get("name", "RSS"),
+                "published": parse_published(entry),
             }
         )
     return items
@@ -320,6 +333,7 @@ def fetch_html(src: dict, summary_len: int) -> list:
                 "link": link,
                 "summary": summary,
                 "source": src.get("name", "HTML"),
+                "published": None,  # HTML 목록에는 발행시각이 없음
             }
         )
 
@@ -350,13 +364,14 @@ def build_blocks(item: dict, opts: dict) -> list:
     blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": body}}]
 
     if opts.get("show_footer", True):
+        stamp = item.get("published") or datetime.now(KST)
         blocks.append(
             {
                 "type": "context",
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
+                        "text": stamp.astimezone(KST).strftime("%Y-%m-%d %H:%M"),
                     }
                 ],
             }
@@ -434,6 +449,10 @@ def main() -> None:
     }
     # 소스별 상한: 0 이면 제한 없음. 한 소스가 전체를 독점하는 것을 방지
     per_source_max = int(slack_cfg.get("per_source_max", 0))
+    # 이 시각보다 오래된 기사는 게시하지 않음
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        hours=float(cfg.get("max_age_hours", 24))
+    )
 
     seen = load_state()
     seen_set = set(seen)
@@ -452,6 +471,26 @@ def main() -> None:
         log.info("[%s] %d건 수집", src.get("name", "?"), len(items))
         if not items:
             dead.append(src.get("name", "?"))
+
+        # 발행시각 기준으로 최신 기사만 남기고 최신순 정렬.
+        # 발행시각을 모르는 기사는 오래된 것인지 판단할 수 없어 게시하지 않는다.
+        fresh, stale, undated = [], 0, 0
+        for item in items:
+            if item["published"] is None:
+                undated += 1
+            elif item["published"] < cutoff:
+                stale += 1
+            else:
+                fresh.append(item)
+        fresh.sort(key=lambda it: it["published"], reverse=True)
+        if stale or undated:
+            log.info(
+                "[%s] 제외 - 오래된 기사 %d건, 발행시각 없음 %d건",
+                src.get("name", "?"),
+                stale,
+                undated,
+            )
+        items = fresh
 
         # 이 소스 전용 상한 (소스별 max 로 개별 지정 가능)
         src_cap = int(src.get("max", per_source_max)) or 10**6
@@ -486,8 +525,7 @@ def main() -> None:
                         item["source"], item["title"], item["link"], preview
                     )
                 )
-                seen_set.add(key)
-                seen.append(key)
+                seen_set.add(key)  # 같은 실행 안에서 중복 출력 방지용 (저장 안 함)
                 posted += 1
                 src_posted += 1
                 continue
@@ -502,7 +540,8 @@ def main() -> None:
         if posted >= max_post:
             break
 
-    save_state(seen)
+    if not args.dry_run:  # dry-run 이 seen 을 오염시키면 실제 게시가 건너뛰어진다
+        save_state(seen)
     log.info("완료 - %d건 게시", posted)
 
     # 클라우드에서 조용히 실패하는 것을 막기 위한 상태 보고
