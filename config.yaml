@@ -35,10 +35,10 @@ sources:
     keywords: []
 
   # ── 4) 구글뉴스 광역 감시 (요약 없음) ───────────────────
-  - name: "구글뉴스: 설계공모"
-    type: rss
-    url: "https://news.google.com/rss/search?q=%EC%84%A4%EA%B3%84%EA%B3%B5%EB%AA%A8&hl=ko&gl=KR&ceid=KR:ko"
-    keywords: []
+  # - name: "구글뉴스: 설계공모"
+  #   type: rss
+  #   url: "https://news.google.com/rss/search?q=%EC%84%A4%EA%B3%84%EA%B3%B5%EB%AA%A8&hl=ko&gl=KR&ceid=KR:ko"
+  #   keywords: []
 
   # ── 5) 마실와이드 인터뷰 (429 로 미확인) ────────────────
   #    check_feeds.py 재실행 후 OK 나오면 주석 해제
