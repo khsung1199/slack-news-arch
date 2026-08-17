@@ -1,0 +1,53 @@
+name: news-to-slack
+
+on:
+  schedule:
+    # UTC 기준. 20분마다 실행 (무료 티어는 수 분~십수 분 지연될 수 있음)
+    - cron: "*/20 * * * *"
+  workflow_dispatch:          # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: write             # state/seen.json 커밋용
+
+concurrency:
+  group: news-to-slack
+  cancel-in-progress: false   # 중복 실행으로 인한 이중 게시 방지
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Scrape & post to Slack
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: python main.py
+
+      - name: Persist dedupe state
+        if: always()            # 게시 실패해도 이미 보낸 건은 기록
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/seen.json
+          git diff --staged --quiet && echo "변경 없음" && exit 0
+          git commit -m "chore: update seen state [skip ci]"
+          # 다른 실행이 먼저 push 했을 경우를 대비해 rebase 후 재시도
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push && exit 0
+            echo "push 충돌 - 재시도 $i"
+            sleep 5
+          done
+          echo "push 최종 실패" && exit 1

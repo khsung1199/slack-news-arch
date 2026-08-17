@@ -1,0 +1,59 @@
+# ============================================================
+# 뉴스 -> Slack 봇 설정
+# 수정 후 반드시:  python main.py --dry-run
+# 소스 추가 시:    python check_feeds.py <사이트주소>  로 RSS 먼저 탐지
+# ============================================================
+
+slack:
+  channel: "C0BQPAM2SD8"
+  max_per_run: 12         # 1회 실행당 최대 게시 수 (도배 방지)
+  per_source_max: 4       # 소스당 최대 게시 수 (한 소스 독점 방지)
+
+  # ── 게시 모양 ────────────────────────────────────────
+  summary_lines: 2        # 요약 문장 수 (2~3 권장). 완결 문장만 나옴
+  summary_len: 220        # 요약 전체 글자수 상한
+  show_footer: true       # 하단 시간 표시. false 면 제거
+
+sources:
+
+  # ── 1) 건축사신문 (50건, 요약 있음) ─────────────────────
+  - name: "건축사신문"
+    type: rss
+    url: "https://www.ancnews.kr/rss/allArticle.xml"
+    keywords: []
+
+  # ── 2) 마실그라운드 (요약 있음) ─────────────────────────
+  - name: "마실그라운드"
+    type: rss
+    url: "https://masilground.com/rss"
+    keywords: []
+
+  # ── 3) C3코리아 (요약 없음 - 제목+링크만) ───────────────
+  - name: "C3코리아"
+    type: rss
+    url: "https://c3korea.com/feed/"
+    keywords: []
+
+  # ── 4) 구글뉴스 광역 감시 (요약 없음) ───────────────────
+  - name: "구글뉴스: 설계공모"
+    type: rss
+    url: "https://news.google.com/rss/search?q=%EC%84%A4%EA%B3%84%EA%B3%B5%EB%AA%A8&hl=ko&gl=KR&ceid=KR:ko"
+    keywords: []
+
+  # ── 5) 마실와이드 인터뷰 (429 로 미확인) ────────────────
+  #    check_feeds.py 재실행 후 OK 나오면 주석 해제
+  # - name: "마실와이드 인터뷰"
+  #   type: rss
+  #   url: "https://masilwide.com/interview/feed/"
+  #   keywords: []
+
+  # ── 6) 건축사협회 건축뉴스 (RSS 없음 -> HTML) ───────────
+  #    주의: 1번 건축사신문과 기사가 상당히 겹칩니다.
+  # - name: "건축사협회 건축뉴스"
+  #   type: html
+  #   url: "https://www.kira.or.kr/jsp/main/01/04_03.jsp"
+  #   selectors:
+  #     item: "table tbody tr"
+  #     title: "a"
+  #     link: "a"
+  #   keywords: []

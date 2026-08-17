@@ -1,0 +1,19 @@
+# 토큰 - 절대 커밋 금지
+token.txt
+
+# 가상환경 / 캐시
+.venv/
+__pycache__/
+*.pyc
+
+# 로컬 로그
+logs/
+*.log
+install.log
+
+# 로컬 전용 스크립트
+setup.ps1
+run.bat
+
+# 주의: state/seen.json 은 절대 무시하지 마세요.
+# GitHub Actions 가 중복 게시를 막는 데 필요합니다.
